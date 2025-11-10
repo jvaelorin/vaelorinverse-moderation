@@ -5,6 +5,7 @@
 
 const admin = require('firebase-admin');
 const { moderateContent, getCrisisResources, getRejectionMessage } = require('./utils/contentModeration');
+const { sendUrgentAlert } = require('./utils/emailService');
 
 // Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
@@ -18,53 +19,6 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-
-/**
- * Send email notification for urgent content
- * @param {Object} whisper - Whisper data
- * @param {Object} moderation - Moderation result
- */
-async function sendUrgentAlert(whisper, moderation) {
-  // Using Netlify's built-in email or a service like SendGrid
-  // You'll need to configure this based on your email service
-
-  const emailData = {
-    to: process.env.ADMIN_EMAIL,
-    subject: '🚨 URGENT: Crisis Language Detected in Whisper Submission',
-    html: `
-      <h2 style="color: #ef4444;">🚨 URGENT WHISPER ALERT</h2>
-      <p><strong>Status:</strong> Requires immediate review</p>
-      <p><strong>Reason:</strong> ${moderation.reason}</p>
-      <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
-
-      <h3>Whisper Content:</h3>
-      <blockquote style="background: #f3f4f6; padding: 1rem; border-left: 4px solid #ef4444;">
-        "${whisper.text}"
-      </blockquote>
-
-      <h3>Detected Keywords:</h3>
-      <p>${moderation.matches?.join(', ') || 'N/A'}</p>
-
-      <h3>Actions Taken:</h3>
-      <ul>
-        <li>✅ Crisis resources automatically shown to user</li>
-        <li>✅ Submission flagged for urgent review</li>
-        <li>✅ Admin notification sent</li>
-      </ul>
-
-      <p><a href="https://vaelorinverse.com/admin/dashboard.html" style="background: #fbbf24; color: #000; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 1rem;">View in Dashboard</a></p>
-    `
-  };
-
-  // TODO: Implement email sending based on your service
-  // Example with SendGrid, Mailgun, or Netlify Forms
-  console.log('URGENT EMAIL ALERT:', emailData);
-
-  // If using SendGrid:
-  // const sgMail = require('@sendgrid/mail');
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  // await sgMail.send(emailData);
-}
 
 exports.handler = async (event, context) => {
   // CORS headers
@@ -143,8 +97,8 @@ exports.handler = async (event, context) => {
       // Save to database
       const docRef = await db.collection('whispers').add(whisperDoc);
 
-      // Send urgent email alert
-      await sendUrgentAlert({ ...whisperDoc, id: docRef.id }, moderation);
+      // Send urgent email alert via Zoho SMTP
+      await sendUrgentAlert({ ...whisperDoc, text: trimmedText, id: docRef.id }, moderation, 'whisper');
 
       // Return crisis resources to user
       const crisisResources = getCrisisResources();

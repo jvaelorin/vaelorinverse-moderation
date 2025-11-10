@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Content Moderation</title>
+  <style>
+    body { font-family: Arial; padding: 2rem; background: #1a1a2e; color: #fff; }
+    .container { max-width: 600px; margin: 0 auto; }
+    button { background: #10b981; color: white; padding: 1rem 2rem; border: none; 
+             border-radius: 6px; cursor: pointer; margin: 0.5rem; font-size: 1rem; }
+    button:hover { background: #059669; }
+    .result { margin-top: 1rem; padding: 1rem; border-radius: 6px; background: #2d3748; }
+    .success { border-left: 4px solid #10b981; }
+    .error { border-left: 4px solid #ef4444; }
+    .crisis { border-left: 4px solid #fbbf24; background: rgba(251, 191, 36, 0.1); }
+    pre { white-space: pre-wrap; word-wrap: break-word; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 Test VaelorinVerse Moderation</h1>
+    
+    <h2>Test Scenarios:</h2>
+    
+    <button onclick="testClean()">✅ Test Clean Whisper</button>
+    <button onclick="testCrisis()">🚨 Test Crisis Detection</button>
+    <button onclick="testOffensive()">❌ Test Offensive Content</button>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const API_URL = 'https://vaelorinverseadmindashboard.netlify.app/api/submit-whisper';
+    
+    async function testClean() {
+      showLoading();
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'I miss you grandma, thinking of you today' })
+      });
+      const data = await response.json();
+      showResult('Clean Whisper Test', data, response.ok);
+    }
+    
+    async function testCrisis() {
+      showLoading();
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'I want to end my life' })
+      });
+      const data = await response.json();
+      showResult('Crisis Detection Test', data, response.ok, 'crisis');
+    }
+    
+    async function testOffensive() {
+      showLoading();
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'kill yourself you worthless piece of trash' })
+      });
+      const data = await response.json();
+      showResult('Offensive Content Test', data, response.ok);
+    }
+    
+    function showLoading() {
+      document.getElementById('result').innerHTML = '<div class="result">⏳ Testing...</div>';
+    }
+    
+    function showResult(title, data, success, type = '') {
+      const className = type === 'crisis' ? 'crisis' : (success ? 'success' : 'error');
+      const icon = type === 'crisis' ? '🚨' : (success ? '✅' : '❌');
+      
+      document.getElementById('result').innerHTML = `
+        <div class="result ${className}">
+          <h3>${icon} ${title}</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

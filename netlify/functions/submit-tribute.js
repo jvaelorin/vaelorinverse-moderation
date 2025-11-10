@@ -5,6 +5,7 @@
 
 const admin = require('firebase-admin');
 const { moderateContent, getCrisisResources, getRejectionMessage } = require('./utils/contentModeration');
+const { sendUrgentAlert } = require('./utils/emailService');
 
 // Initialize Firebase Admin (reuse if already initialized)
 if (!admin.apps.length) {
@@ -18,53 +19,6 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-
-/**
- * Send email notification for urgent tribute content
- * @param {Object} tribute - Tribute data
- * @param {Object} moderation - Moderation result
- */
-async function sendUrgentAlert(tribute, moderation) {
-  const emailData = {
-    to: process.env.ADMIN_EMAIL,
-    subject: '🚨 URGENT: Crisis Language Detected in Memorial Tribute',
-    html: `
-      <h2 style="color: #ef4444;">🚨 URGENT TRIBUTE ALERT</h2>
-      <p><strong>Status:</strong> Requires immediate review</p>
-      <p><strong>Reason:</strong> ${moderation.reason}</p>
-      <p><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
-
-      <h3>Tribute Details:</h3>
-      <p><strong>Name:</strong> ${tribute.name}</p>
-      <p><strong>Email:</strong> ${tribute.email || 'Not provided'}</p>
-
-      <h3>Message:</h3>
-      <blockquote style="background: #f3f4f6; padding: 1rem; border-left: 4px solid #ef4444;">
-        "${tribute.message}"
-      </blockquote>
-
-      <h3>Detected Keywords:</h3>
-      <p>${moderation.matches?.join(', ') || 'N/A'}</p>
-
-      <h3>Actions Taken:</h3>
-      <ul>
-        <li>✅ Crisis resources automatically shown to user</li>
-        <li>✅ Submission flagged for urgent review</li>
-        <li>✅ Admin notification sent</li>
-      </ul>
-
-      <p><a href="https://vaelorinverse.com/admin/dashboard.html" style="background: #fbbf24; color: #000; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 1rem;">View in Dashboard</a></p>
-    `
-  };
-
-  console.log('URGENT EMAIL ALERT:', emailData);
-
-  // TODO: Implement email sending
-  // Example with SendGrid:
-  // const sgMail = require('@sendgrid/mail');
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  // await sgMail.send(emailData);
-}
 
 exports.handler = async (event, context) => {
   // CORS headers
@@ -173,8 +127,8 @@ exports.handler = async (event, context) => {
       // Save to database
       const docRef = await db.collection('tributes').add(tributeDoc);
 
-      // Send urgent email alert
-      await sendUrgentAlert({ ...tributeDoc, id: docRef.id }, moderation);
+      // Send urgent email alert via Zoho SMTP
+      await sendUrgentAlert({ ...tributeDoc, name: trimmedName, message: trimmedMessage, email, id: docRef.id }, moderation, 'tribute');
 
       // Return crisis resources to user
       const crisisResources = getCrisisResources();

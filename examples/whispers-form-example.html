@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whispers of the Veil - Example Form</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e4e4e7;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 600px;
+      width: 100%;
+      background: rgba(26, 26, 46, 0.8);
+      padding: 2.5rem;
+      border-radius: 16px;
+      border: 2px solid rgba(251, 191, 36, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 {
+      color: #fbbf24;
+      margin-bottom: 1rem;
+      font-size: 1.8rem;
+    }
+
+    p {
+      color: #9ca3af;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 1rem;
+      background: rgba(15, 52, 96, 0.3);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 8px;
+      color: #e4e4e7;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 120px;
+      margin-bottom: 0.5rem;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #fbbf24;
+      box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+    }
+
+    .char-count {
+      text-align: right;
+      font-size: 0.85rem;
+      color: #9ca3af;
+      margin-bottom: 1rem;
+    }
+
+    .char-count.warning {
+      color: #f59e0b;
+    }
+
+    button {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1));
+      border: 2px solid #fbbf24;
+      color: #fbbf24;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    button:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(251, 191, 36, 0.2));
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .message {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .message.success {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid #10b981;
+      color: #10b981;
+      display: block;
+    }
+
+    .message.error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid #ef4444;
+      color: #ef4444;
+      display: block;
+    }
+
+    .message.urgent {
+      background: rgba(251, 191, 36, 0.2);
+      border: 2px solid #fbbf24;
+      color: #fbbf24;
+      display: block;
+    }
+
+    .crisis-resources {
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 2px solid #ef4444;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .crisis-resources.show {
+      display: block;
+    }
+
+    .crisis-resources h2 {
+      color: #ef4444;
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+    }
+
+    .resource {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
+    }
+
+    .resource-name {
+      font-weight: 600;
+      color: #fbbf24;
+      margin-bottom: 0.25rem;
+    }
+
+    .resource-phone {
+      font-size: 1.2rem;
+      color: #e4e4e7;
+      margin-bottom: 0.25rem;
+    }
+
+    .resource-desc {
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🕊 Whispers of the Veil</h1>
+    <p>Share your thoughts, feelings, or messages to those who have passed. Your whisper will be reviewed before appearing.</p>
+
+    <form id="whisper-form">
+      <textarea
+        id="whisper-text"
+        placeholder="Share your whisper..."
+        maxlength="280"
+        required
+      ></textarea>
+
+      <div class="char-count" id="char-count">0 / 280</div>
+
+      <button type="submit" id="submit-btn">Send Whisper</button>
+    </form>
+
+    <div class="message" id="message"></div>
+
+    <div class="crisis-resources" id="crisis-resources">
+      <h2>🚨 We're Concerned About You</h2>
+      <p style="margin-bottom: 1rem; line-height: 1.6;">If you're in crisis or experiencing thoughts of self-harm, please reach out to these resources immediately:</p>
+
+      <div id="resources-list"></div>
+
+      <p style="margin-top: 1rem; font-style: italic; color: #d1d5db;">Your message has been received. Please know that you are not alone, and help is available.</p>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('whisper-form');
+    const textarea = document.getElementById('whisper-text');
+    const charCount = document.getElementById('char-count');
+    const submitBtn = document.getElementById('submit-btn');
+    const messageDiv = document.getElementById('message');
+    const crisisDiv = document.getElementById('crisis-resources');
+    const resourcesList = document.getElementById('resources-list');
+
+    // Character count
+    textarea.addEventListener('input', () => {
+      const length = textarea.value.length;
+      charCount.textContent = `${length} / 280`;
+
+      if (length > 250) {
+        charCount.classList.add('warning');
+      } else {
+        charCount.classList.remove('warning');
+      }
+    });
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const text = textarea.value.trim();
+
+      if (!text) {
+        showMessage('Please enter a whisper', 'error');
+        return;
+      }
+
+      // Disable form
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      messageDiv.className = 'message';
+      crisisDiv.classList.remove('show');
+
+      try {
+        // CHANGE THIS URL to your Netlify site URL
+        const response = await fetch('https://your-site.netlify.app/api/submit-whisper', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ text })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          if (result.urgent) {
+            // Crisis detected - show resources
+            showCrisisResources(result);
+            showMessage('Your whisper has been received. Please see the important resources below.', 'urgent');
+            textarea.value = '';
+            charCount.textContent = '0 / 280';
+          } else {
+            // Success
+            showMessage(result.message, 'success');
+            textarea.value = '';
+            charCount.textContent = '0 / 280';
+          }
+        } else {
+          // Rejected
+          showMessage(result.message + (result.reason ? ': ' + result.reason : ''), 'error');
+          if (result.guidelines) {
+            showMessage(result.message + '\n\n' + result.guidelines, 'error');
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        showMessage('Failed to submit whisper. Please try again.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Whisper';
+      }
+    });
+
+    function showMessage(text, type) {
+      messageDiv.textContent = text;
+      messageDiv.className = 'message ' + type;
+    }
+
+    function showCrisisResources(data) {
+      resourcesList.innerHTML = '';
+
+      if (data.resources) {
+        data.resources.forEach(resource => {
+          const div = document.createElement('div');
+          div.className = 'resource';
+
+          let html = `<div class="resource-name">${resource.name}</div>`;
+
+          if (resource.phone) {
+            html += `<div class="resource-phone">${resource.phone}</div>`;
+          }
+
+          if (resource.url) {
+            html += `<div class="resource-phone"><a href="${resource.url}" target="_blank" style="color: #3b82f6;">${resource.url}</a></div>`;
+          }
+
+          if (resource.description) {
+            html += `<div class="resource-desc">${resource.description}</div>`;
+          }
+
+          div.innerHTML = html;
+          resourcesList.appendChild(div);
+        });
+      }
+
+      crisisDiv.classList.add('show');
+    }
+  </script>
+</body>
+</html>

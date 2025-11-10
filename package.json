@@ -1,0 +1,28 @@
+{
+  "name": "vaelorinverse-moderation",
+  "version": "1.0.0",
+  "description": "Content moderation system for VaelorinVerse memorial wall and whispers with crisis detection",
+  "main": "index.js",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step required'",
+    "deploy": "netlify deploy --prod"
+  },
+  "keywords": [
+    "moderation",
+    "content-safety",
+    "crisis-detection",
+    "netlify-functions"
+  ],
+  "author": "VaelorinVerse",
+  "license": "MIT",
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,27 @@
+[build]
+  functions = "netlify/functions"
+  publish = "public"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Redirect rules
+[[redirects]]
+  from = "/api/submit-whisper"
+  to = "/.netlify/functions/submit-whisper"
+  status = 200
+
+[[redirects]]
+  from = "/api/submit-tribute"
+  to = "/.netlify/functions/submit-tribute"
+  status = 200
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"

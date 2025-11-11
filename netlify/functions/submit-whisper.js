@@ -1,11 +1,14 @@
 /**
  * Netlify Function: Submit Whisper
  * Handles whisper submissions with automatic content moderation
+ *
+ * FIX APPLIED: Removed "await" from email functions (lines 101 & 142)
+ * to prevent 10-second delays on mobile. Emails now send in background.
  */
 
 const admin = require('firebase-admin');
 const { moderateContent, getCrisisResources, getRejectionMessage } = require('./utils/contentModeration');
-const { sendUrgentAlert } = require('./utils/emailService');
+const { sendUrgentAlert, sendGeneralNotification } = require('./utils/emailService');
 
 // Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
@@ -73,7 +76,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // MODERATE CONTENT
+    // MODERATE CONTENT (ultra-fast keyword detection <5ms)
     const moderation = moderateContent(trimmedText, 'whisper');
 
     // Prepare whisper document
@@ -97,8 +100,8 @@ exports.handler = async (event, context) => {
       // Save to database
       const docRef = await db.collection('whispers').add(whisperDoc);
 
-      // Send urgent email alert via Zoho SMTP
-      await sendUrgentAlert({ ...whisperDoc, text: trimmedText, id: docRef.id }, moderation, 'whisper');
+      // Send urgent email alert via Zoho SMTP (background - don't block response)
+      sendUrgentAlert({ ...whisperDoc, text: trimmedText, id: docRef.id }, moderation, 'whisper');
 
       // Return crisis resources to user
       const crisisResources = getCrisisResources();
@@ -137,6 +140,9 @@ exports.handler = async (event, context) => {
     } else {
       // CLEAN CONTENT - Pending review
       const docRef = await db.collection('whispers').add(whisperDoc);
+
+      // Send general notification email to INFO_EMAIL (background - don't block response)
+      sendGeneralNotification({ ...whisperDoc, text: trimmedText, id: docRef.id }, 'whisper');
 
       return {
         statusCode: 200,

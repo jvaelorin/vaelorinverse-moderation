@@ -101,7 +101,9 @@ exports.handler = async (event, context) => {
       const docRef = await db.collection('whispers').add(whisperDoc);
 
       // Send urgent email alert via Zoho SMTP (background - don't block response)
-      sendUrgentAlert({ ...whisperDoc, text: trimmedText, id: docRef.id }, moderation, 'whisper');
+      sendUrgentAlert({ ...whisperDoc, text: trimmedText, id: docRef.id }, moderation, 'whisper').catch(err => {
+        console.error('Background email error (non-critical):', err);
+      });
 
       // Return crisis resources to user
       const crisisResources = getCrisisResources();
@@ -142,7 +144,9 @@ exports.handler = async (event, context) => {
       const docRef = await db.collection('whispers').add(whisperDoc);
 
       // Send general notification email to INFO_EMAIL (background - don't block response)
-      sendGeneralNotification({ ...whisperDoc, text: trimmedText, id: docRef.id }, 'whisper');
+      sendGeneralNotification({ ...whisperDoc, text: trimmedText, id: docRef.id }, 'whisper').catch(err => {
+        console.error('Background email error (non-critical):', err);
+      });
 
       return {
         statusCode: 200,

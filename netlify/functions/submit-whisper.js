@@ -2,16 +2,18 @@
  * Netlify Function: Submit Whisper
  * Handles whisper submissions with automatic content moderation
  *
- * FIX APPLIED: Removed "await" from email functions (lines 101 & 142)
- * to prevent 10-second delays on mobile. Emails now send in background.
- *
- * UPDATED: moderateContent is now async (keyword first pass + OpenAI second
- * pass), so the call below uses "await". This is the only change in this file.
+ * UPDATED:
+ *  - moderateContent is now async (keyword first pass + OpenAI second pass),
+ *    so the call below uses "await".
+ *  - Removed the call to sendGeneralNotification, which did not exist in
+ *    emailService.js and was crashing clean-whisper submissions. Clean
+ *    whispers still save to the database and appear in the dashboard for
+ *    review; only the (nonexistent) courtesy email was removed.
  */
 
 const admin = require('firebase-admin');
 const { moderateContent, getCrisisResources, getRejectionMessage } = require('./utils/contentModeration');
-const { sendUrgentAlert, sendGeneralNotification } = require('./utils/emailService');
+const { sendUrgentAlert } = require('./utils/emailService');
 
 // Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
@@ -142,10 +144,8 @@ exports.handler = async (event, context) => {
 
     } else {
       // CLEAN CONTENT - Pending review
+      // (Saves to database and appears in dashboard for review.)
       const docRef = await db.collection('whispers').add(whisperDoc);
-
-      // Send general notification email to INFO_EMAIL
-      await sendGeneralNotification({ ...whisperDoc, text: trimmedText, id: docRef.id }, 'whisper');
 
       return {
         statusCode: 200,

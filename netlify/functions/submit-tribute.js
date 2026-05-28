@@ -1,6 +1,9 @@
 /**
  * Netlify Function: Submit Memorial Tribute
  * Handles tribute submissions with automatic content moderation
+ *
+ * UPDATED: moderateContent is now async (keyword first pass + OpenAI second
+ * pass), so the call below uses "await". This is the only change in this file.
  */
 
 const admin = require('firebase-admin');
@@ -101,7 +104,7 @@ exports.handler = async (event, context) => {
 
     // MODERATE CONTENT (check both name and message)
     const fullText = `${trimmedName} ${trimmedMessage}`;
-    const moderation = moderateContent(fullText, 'tribute');
+    const moderation = await moderateContent(fullText, 'tribute');
 
     // Prepare tribute document
     const tributeDoc = {

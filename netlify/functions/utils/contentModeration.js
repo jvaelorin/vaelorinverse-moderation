@@ -1,6 +1,18 @@
 /**
  * Content Moderation Utility
- * Detects crisis language, self-harm, threats, and offensive content
+ * Detects crisis language, self-harm, threats, and offensive content.
+ *
+ * Two-pass design:
+ *   1. Keyword detection (instant, free, always runs first)
+ *   2. OpenAI Moderation (meaning-based, catches quiet language keywords miss)
+ *
+ * SAFETY PROPERTY: If OpenAI fails for any reason, keyword detection still
+ * protects. This never "fails open" (never lets content through unmoderated
+ * because of an API error).
+ *
+ * NOTE: moderateContent is now ASYNC. The calling functions
+ * (submit-whisper.js and submit-tribute.js) MUST use:
+ *     const moderation = await moderateContent(text, type);
  */
 
 // Crisis/Self-Harm Keywords (HIGH PRIORITY)
@@ -144,17 +156,89 @@ function checkForDisrespectfulContent(text) {
 }
 
 /**
- * Comprehensive content moderation
- * @param {string} text - Text to moderate
- * @param {string} type - Type of submission ('whisper' or 'tribute')
- * @returns {Object} - Moderation result with action, status, and reason
+ * OpenAI Moderation check — catches meaning/intent that keyword patterns miss
+ * (e.g. "I can't do this anymore", "everyone would be better off without me").
+ *
+ * This is a CONTENT CLASSIFIER, not a clinical tool. It improves detection
+ * breadth; it does not make the system clinically validated.
+ *
+ * Never throws. On any failure returns { flagged:false, selfHarm:false, error:true }
+ * so the caller falls back to keyword-only protection.
+ *
+ * @param {string} text - Text to analyze
+ * @returns {Promise<Object>} - { flagged, selfHarm, error }
  */
-function moderateContent(text, type = 'whisper') {
+async function checkWithOpenAI(text) {
+  // If no API key is configured, skip gracefully (keyword detection still runs).
+  if (!process.env.OPENAI_API_KEY) {
+    return { flagged: false, selfHarm: false, error: true };
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/moderations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'omni-moderation-latest',
+        input: text
+      })
+    });
+
+    if (!response.ok) {
+      console.error('OpenAI moderation HTTP error:', response.status);
+      return { flagged: false, selfHarm: false, error: true };
+    }
+
+    const result = await response.json();
+    const first = result.results && result.results[0] ? result.results[0] : {};
+    const categories = first.categories || {};
+    const scores = first.category_scores || {};
+
+    // Self-harm signal — meaning-based, catches quiet language.
+    // Uses both the boolean category flags and a score threshold (0.5)
+    // so borderline-but-meaningful cases still surface.
+    const selfHarm =
+      categories['self-harm'] === true ||
+      categories['self-harm/intent'] === true ||
+      categories['self-harm/instructions'] === true ||
+      (scores['self-harm'] || 0) > 0.5 ||
+      (scores['self-harm/intent'] || 0) > 0.5;
+
+    return {
+      flagged: first.flagged === true,
+      selfHarm: !!selfHarm,
+      error: false
+    };
+  } catch (err) {
+    // Network failure, timeout, etc. — fall back to keywords, never fail open.
+    console.error('OpenAI moderation call failed:', err.message);
+    return { flagged: false, selfHarm: false, error: true };
+  }
+}
+
+/**
+ * Comprehensive content moderation — ASYNC.
+ *
+ * Order of operations:
+ *   1. Keyword crisis check (instant). If hit, flag urgent immediately.
+ *   2. Keyword offensive / disrespectful check. If hit, reject.
+ *   3. OpenAI meaning-based self-harm check (only for content that passed step 1).
+ *      If hit, flag urgent.
+ *   4. Otherwise, clean -> pending review.
+ *
+ * @param {string} text - Text to moderate
+ * @param {string} type - 'whisper' or 'tribute'
+ * @returns {Promise<Object>} - Moderation result with action, status, and reason
+ */
+async function moderateContent(text, type = 'whisper') {
   const crisis = checkForCrisisContent(text);
   const offensive = checkForOffensiveContent(text);
   const disrespectful = type === 'tribute' ? checkForDisrespectfulContent(text) : { isDisrespectful: false };
 
-  // Priority 1: Crisis content (urgent review, auto-respond with resources)
+  // Priority 1: Keyword crisis content (urgent review, auto-respond with resources)
   if (crisis.isCrisis) {
     return {
       action: 'flag-urgent',
@@ -193,11 +277,28 @@ function moderateContent(text, type = 'whisper') {
     };
   }
 
+  // Priority 4: OpenAI meaning-based self-harm check (catches quiet language)
+  const ai = await checkWithOpenAI(text);
+
+  if (ai.selfHarm) {
+    return {
+      action: 'flag-urgent',
+      status: 'urgent-review',
+      reason: 'Possible self-harm language detected (AI moderation)',
+      flagReason: 'Possible self-harm language detected (AI moderation)',
+      crisisResourcesShown: true,
+      approved: false,
+      matches: ['ai-moderation-flag']
+    };
+  }
+
   // Clean content - pending review
   return {
     action: 'approve-pending',
     status: 'pending',
-    reason: 'Content passed automated moderation',
+    reason: ai.error
+      ? 'Passed keyword moderation (AI check unavailable)'
+      : 'Content passed automated moderation',
     approved: false,
     rejected: false
   };
@@ -212,7 +313,7 @@ function getCrisisResources() {
     message: `We're concerned about your wellbeing. If you're in crisis or experiencing thoughts of self-harm, please reach out to these resources immediately:`,
     resources: [
       {
-        name: 'National Suicide Prevention Lifeline',
+        name: '988 Suicide & Crisis Lifeline',
         phone: '988',
         description: '24/7 crisis support in English and Spanish'
       },
@@ -261,6 +362,7 @@ module.exports = {
   checkForCrisisContent,
   checkForOffensiveContent,
   checkForDisrespectfulContent,
+  checkWithOpenAI,
   getCrisisResources,
   getRejectionMessage
 };

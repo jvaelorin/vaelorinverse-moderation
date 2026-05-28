@@ -4,6 +4,9 @@
  *
  * FIX APPLIED: Removed "await" from email functions (lines 101 & 142)
  * to prevent 10-second delays on mobile. Emails now send in background.
+ *
+ * UPDATED: moderateContent is now async (keyword first pass + OpenAI second
+ * pass), so the call below uses "await". This is the only change in this file.
  */
 
 const admin = require('firebase-admin');
@@ -76,8 +79,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // MODERATE CONTENT (ultra-fast keyword detection <5ms)
-    const moderation = moderateContent(trimmedText, 'whisper');
+    // MODERATE CONTENT (keyword first pass <5ms + OpenAI second pass)
+    const moderation = await moderateContent(trimmedText, 'whisper');
 
     // Prepare whisper document
     const whisperDoc = {

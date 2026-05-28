@@ -204,8 +204,8 @@ async function checkWithOpenAI(text) {
       categories['self-harm'] === true ||
       categories['self-harm/intent'] === true ||
       categories['self-harm/instructions'] === true ||
-      (scores['self-harm'] || 0) > 0.2 ||
-      (scores['self-harm/intent'] || 0) > 0.2;
+      (scores['self-harm'] || 0) > 0.15 ||
+      (scores['self-harm/intent'] || 0) > 0.15;
 
     return {
       flagged: first.flagged === true,

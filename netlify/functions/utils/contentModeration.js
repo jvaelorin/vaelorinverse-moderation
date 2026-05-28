@@ -10,9 +10,13 @@
  * protects. This never "fails open" (never lets content through unmoderated
  * because of an API error).
  *
- * NOTE: moderateContent is now ASYNC. The calling functions
+ * NOTE: moderateContent is ASYNC. The calling functions
  * (submit-whisper.js and submit-tribute.js) MUST use:
  *     const moderation = await moderateContent(text, type);
+ *
+ * DIAGNOSTIC: checkWithOpenAI logs whether the API key is visible at runtime.
+ * Once OpenAI detection is confirmed working, the two console.log lines marked
+ * "DIAGNOSTIC" can be removed.
  */
 
 // Crisis/Self-Harm Keywords (HIGH PRIORITY)
@@ -66,8 +70,6 @@ const DISRESPECTFUL_PATTERNS = [
 
 /**
  * Check content for crisis/self-harm language
- * @param {string} text - Text to analyze
- * @returns {Object} - { isCrisis: boolean, matches: string[], reason: string }
  */
 function checkForCrisisContent(text) {
   const matches = [];
@@ -81,7 +83,6 @@ function checkForCrisisContent(text) {
   }
 
   if (matches.length > 0) {
-    // Determine if it's self-harm or harm to others
     const selfHarmIndicators = /(myself|my life|i want|i should|i can't)/i;
     const othersHarmIndicators = /(them|him|her|you|everyone|they|shoot up|attack)/i;
 
@@ -103,8 +104,6 @@ function checkForCrisisContent(text) {
 
 /**
  * Check content for offensive/hate speech
- * @param {string} text - Text to analyze
- * @returns {Object} - { isOffensive: boolean, matches: string[], reason: string }
  */
 function checkForOffensiveContent(text) {
   const matches = [];
@@ -130,8 +129,6 @@ function checkForOffensiveContent(text) {
 
 /**
  * Check content for disrespectful language (memorial-specific)
- * @param {string} text - Text to analyze
- * @returns {Object} - { isDisrespectful: boolean, matches: string[], reason: string }
  */
 function checkForDisrespectfulContent(text) {
   const matches = [];
@@ -164,13 +161,15 @@ function checkForDisrespectfulContent(text) {
  *
  * Never throws. On any failure returns { flagged:false, selfHarm:false, error:true }
  * so the caller falls back to keyword-only protection.
- *
- * @param {string} text - Text to analyze
- * @returns {Promise<Object>} - { flagged, selfHarm, error }
  */
 async function checkWithOpenAI(text) {
+  // DIAGNOSTIC: prove what the function actually sees at runtime.
+  const key = process.env.OPENAI_API_KEY;
+  console.log('OPENAI KEY PRESENT?', !!key, 'LENGTH:', (key || '').length);
+
   // If no API key is configured, skip gracefully (keyword detection still runs).
-  if (!process.env.OPENAI_API_KEY) {
+  if (!key) {
+    console.error('DIAGNOSTIC: OPENAI_API_KEY missing at runtime');
     return { flagged: false, selfHarm: false, error: true };
   }
 
@@ -179,7 +178,7 @@ async function checkWithOpenAI(text) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        'Authorization': `Bearer ${key}`
       },
       body: JSON.stringify({
         model: 'omni-moderation-latest',
@@ -197,9 +196,10 @@ async function checkWithOpenAI(text) {
     const categories = first.categories || {};
     const scores = first.category_scores || {};
 
+    // DIAGNOSTIC: show the self-harm scores so we can tune the threshold if needed.
+    console.log('OPENAI self-harm score:', scores['self-harm'], '| intent:', scores['self-harm/intent']);
+
     // Self-harm signal — meaning-based, catches quiet language.
-    // Uses both the boolean category flags and a score threshold (0.5)
-    // so borderline-but-meaningful cases still surface.
     const selfHarm =
       categories['self-harm'] === true ||
       categories['self-harm/intent'] === true ||
@@ -213,7 +213,6 @@ async function checkWithOpenAI(text) {
       error: false
     };
   } catch (err) {
-    // Network failure, timeout, etc. — fall back to keywords, never fail open.
     console.error('OpenAI moderation call failed:', err.message);
     return { flagged: false, selfHarm: false, error: true };
   }
@@ -221,24 +220,13 @@ async function checkWithOpenAI(text) {
 
 /**
  * Comprehensive content moderation — ASYNC.
- *
- * Order of operations:
- *   1. Keyword crisis check (instant). If hit, flag urgent immediately.
- *   2. Keyword offensive / disrespectful check. If hit, reject.
- *   3. OpenAI meaning-based self-harm check (only for content that passed step 1).
- *      If hit, flag urgent.
- *   4. Otherwise, clean -> pending review.
- *
- * @param {string} text - Text to moderate
- * @param {string} type - 'whisper' or 'tribute'
- * @returns {Promise<Object>} - Moderation result with action, status, and reason
  */
 async function moderateContent(text, type = 'whisper') {
   const crisis = checkForCrisisContent(text);
   const offensive = checkForOffensiveContent(text);
   const disrespectful = type === 'tribute' ? checkForDisrespectfulContent(text) : { isDisrespectful: false };
 
-  // Priority 1: Keyword crisis content (urgent review, auto-respond with resources)
+  // Priority 1: Keyword crisis content
   if (crisis.isCrisis) {
     return {
       action: 'flag-urgent',
@@ -306,7 +294,6 @@ async function moderateContent(text, type = 'whisper') {
 
 /**
  * Get crisis resources message
- * @returns {Object} - Crisis resources information
  */
 function getCrisisResources() {
   return {
@@ -339,9 +326,6 @@ function getCrisisResources() {
 
 /**
  * Get rejection message for user
- * @param {string} reason - Rejection reason
- * @param {string} type - Type of submission
- * @returns {Object} - Rejection message
  */
 function getRejectionMessage(reason, type = 'whisper') {
   const typeLabel = type === 'tribute' ? 'tribute' : 'whisper';
